@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgentSplit — Split a Budget Across Agents, Fairness Checked On-chain</title>
+<meta name="description" content="AgentSplit: the client escrows a budget, the coordinator proposes how to split it across collaborating agents with evidence for each, and an on-chain jury rules whether the shares match the contributions." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#131018; --surface:#1b1622; --card:#231c2c; --card2:#2c2338;
+    --line:#332744; --line2:#463459;
+    --rose:#f43f5e; --sky:#38bdf8; --violet:#a78bfa; --gold:#fbbf24;
+    --ok:#34d399; --warn:#fbbf24; --err:#fb7185;
+    --txt:#f1eaf5; --mut:#a89ab8; --faint:#736186;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Sora',system-ui,sans-serif;
+    background:
+      radial-gradient(920px 500px at 84% -12%, rgba(244,63,94,.17) 0%, transparent 58%),
+      radial-gradient(760px 480px at 6% 106%, rgba(56,189,248,.10) 0%, transparent 60%),
+      var(--bg);
+    color:var(--txt); min-height:100vh; padding:26px 18px 60px;
+  }
+  .wrap{max-width:1160px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+         padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(150deg,var(--rose),var(--violet));
+        display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#131018;
+        box-shadow:0 4px 22px rgba(244,63,94,.32)}
+  h1{font-size:22px;font-weight:700;letter-spacing:-.2px}
+  .tag{font-family:'Fira Code',monospace;font-size:10.5px;color:var(--faint);margin-top:3px}
+  .wallet{display:flex;gap:9px;align-items:center}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
+  .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  .pill{font-family:'Fira Code',monospace;font-size:11px;padding:5px 11px;border-radius:999px;
+        background:var(--surface);border:1px solid var(--line);color:var(--mut)}
+  button{font-family:inherit;cursor:pointer;border-radius:10px;font-size:13.5px;padding:9px 16px;
+         border:1px solid var(--line2);background:var(--card);color:var(--txt);transition:.16s}
+  button:hover{border-color:var(--rose);color:var(--rose)}
+  button.solid{background:linear-gradient(140deg,var(--rose),#be123c);border:none;color:#131018;font-weight:600}
+  button.solid:hover{filter:brightness(1.09);color:#131018}
+  button.sky{background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.45);color:var(--sky)}
+  button.violet{background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.45);color:var(--violet)}
+  button.ghost{background:transparent;border-color:var(--line)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .hero{margin:24px 0 20px}
+  .hero h2{font-size:29px;line-height:1.24;font-weight:600;letter-spacing:-.5px}
+  .hero h2 em{font-style:normal;color:var(--rose)}
+  .hero h2 i{font-style:normal;color:var(--sky)}
+  .hero p{color:var(--mut);font-size:14.5px;line-height:1.65;margin-top:10px;max-width:820px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0 8px}
+  @media(max-width:780px){.stats{grid-template-columns:1fr 1fr}}
+  .st{background:linear-gradient(160deg,var(--card),var(--surface));border:1px solid var(--line);
+      border-radius:14px;padding:15px}
+  .st .k{font-family:'Fira Code',monospace;font-size:10px;color:var(--faint);letter-spacing:.5px}
+  .st .n{font-size:23px;font-weight:700;margin-top:6px;color:var(--rose)}
+  .st .n small{font-size:11px;color:var(--faint);font-weight:400;margin-left:3px}
+  .sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 0 12px;flex-wrap:wrap}
+  .sec h3{font-size:15px;font-weight:600}
+  .sec h3 span{color:var(--faint);font-weight:400;font-size:12.5px;margin-left:7px}
+  .list{display:grid;gap:13px}
+  .job{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:17px;cursor:pointer;transition:.18s}
+  .job:hover{border-color:var(--rose);transform:translateY(-1px)}
+  .job.sel{border-color:var(--rose);box-shadow:0 0 0 1px var(--rose) inset}
+  .job .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .job .id{font-family:'Fira Code',monospace;font-size:11px;color:var(--faint)}
+  .job h4{font-size:15.5px;font-weight:600;margin:9px 0 4px}
+  .job .crit{font-size:12.5px;color:var(--mut)}
+  .badge{font-family:'Fira Code',monospace;font-size:10.5px;padding:3px 9px;border-radius:6px;white-space:nowrap}
+  .b0{background:rgba(167,139,250,.15);color:var(--violet);border:1px solid rgba(167,139,250,.4)}
+  .b1{background:rgba(52,211,153,.14);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .b2{background:rgba(251,113,133,.13);color:var(--err);border:1px solid rgba(251,113,133,.4)}
+  .b3{background:rgba(56,189,248,.14);color:var(--sky);border:1px solid rgba(56,189,248,.42)}
+  .b4{background:rgba(148,163,184,.14);color:#94a3b8;border:1px solid rgba(148,163,184,.4)}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  .nums>div{font-family:'Fira Code',monospace;font-size:10px;color:var(--faint)}
+  .nums b{display:block;font-size:12.5px;color:var(--txt);margin-top:3px}
+  .nums b.t{color:var(--sky)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px;margin-bottom:14px}
+  .card h4{font-size:14px;font-weight:600;margin-bottom:12px}
+  .card h4 span{color:var(--faint);font-weight:400;font-size:12px;margin-left:6px}
+  .row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  .row.three{grid-template-columns:1fr 1fr 1fr}
+  .row.four{grid-template-columns:2fr 1fr 2fr auto}
+  @media(max-width:820px){.row,.row.three,.row.four{grid-template-columns:1fr}}
+  label{display:block;font-family:'Fira Code',monospace;font-size:10px;color:var(--faint);margin-bottom:5px}
+  input{width:100%;font-family:'Fira Code',monospace;font-size:12.5px;padding:10px 12px;border-radius:10px;
+        background:var(--surface);border:1px solid var(--line);color:var(--txt);outline:none}
+  input:focus{border-color:var(--rose)}
+  .msg{font-family:'Fira Code',monospace;font-size:11px;margin-top:10px;padding:9px 11px;border-radius:9px;display:none}
+  .msg.show{display:block}
+  .msg.info{background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:var(--rose)}
+  .msg.ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.32);color:var(--ok)}
+  .msg.err{background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.32);color:var(--err)}
+  .empty{padding:26px;text-align:center;color:var(--faint);font-size:13.5px;
+         border:1px dashed var(--line2);border-radius:14px}
+  .detail{display:none;margin-top:18px}
+  .detail.show{display:block}
+  .det{background:linear-gradient(165deg,var(--card2),var(--card));border:1px solid var(--line2);
+       border-radius:16px;padding:19px}
+  .det .hd{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .splitbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin:14px 0;border:1px solid var(--line2)}
+  .splitbar>span{display:flex;align-items:center;justify-content:center;
+        font-family:'Fira Code',monospace;font-size:10px;color:#131018;font-weight:600}
+  .alloc{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+         background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+  .alloc .who{font-family:'Fira Code',monospace;font-size:11.5px;word-break:break-all}
+  .alloc .who small{display:block;color:var(--faint);font-size:10px;margin-top:3px;word-break:break-all}
+  .alloc .sh{font-family:'Fira Code',monospace;font-size:13px;color:var(--sky);white-space:nowrap}
+  .verdict{font-size:12.5px;color:var(--mut);line-height:1.62;margin-top:12px;font-style:italic;
+           background:var(--surface);border-left:2px solid var(--rose);padding:10px 12px;border-radius:0 9px 9px 0}
+  .acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+  .lbl{font-family:'Fira Code',monospace;font-size:10px;color:var(--faint)}
+  a{color:var(--sky);text-decoration:none}
+  a:hover{text-decoration:underline}
+  footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--line);
+         font-family:'Fira Code',monospace;font-size:11px;color:var(--faint);line-height:1.8}
+  .steps{font-size:13.5px;color:var(--mut);line-height:1.7}
+  .steps li{margin-left:18px;margin-bottom:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="mark">S</div>
+      <div>
+        <h1>AgentSplit</h1>
+        <div class="tag">MULTI-AGENT BUDGET SPLITS · FAIRNESS CHECKED ON-CHAIN · BRADBURY</div>
+      </div>
+    </div>
+    <div class="wallet">
+      <span class="pill"><span class="dot" id="netDot"></span> <span id="netLabel">not connected</span></span>
+      <button class="solid" id="connectBtn">Connect wallet</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <h2>Several agents did the work. The split is decided <em>by evidence</em>, not by whoever holds the keys.</h2>
+    <p>
+      Autonomous agents increasingly finish work as a group, and then a human has to decide who
+      contributed what. AgentSplit moves that decision into the contract: the client escrows the
+      budget, the coordinator proposes a split — each agent's share plus the evidence it delivered —
+      and an on-chain jury fetches every piece of evidence and rules whether the shares match the
+      contributions. A fair split pays out automatically; an unfair one refunds the client.
+    </p>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="k">JOBS</div><div class="n" id="sCount">—</div></div>
+    <div class="st"><div class="k">BUDGET LOCKED</div><div class="n" id="sLocked">—<small>GEN</small></div></div>
+    <div class="st"><div class="k">PAID OUT</div><div class="n" id="sPaid">—</div></div>
+    <div class="st"><div class="k">REFUNDED</div><div class="n" id="sRefunded">—</div></div>
+  </div>
+
+  <div class="sec">
+    <h3>Jobs <span id="listNote">· loading…</span></h3>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="jumpId" placeholder="job #" style="width:100px" />
+      <button class="ghost" id="jumpBtn">Open</button>
+      <button class="ghost" id="reloadBtn">Refresh</button>
+    </div>
+  </div>
+  <div class="list" id="list"><div class="empty">Loading jobs…</div></div>
+
+  <div class="detail" id="detail">
+    <div class="det">
+      <div class="hd">
+        <div><span class="lbl">JOB</span><h4 id="dTitle" style="font-size:17px">—</h4></div>
+        <span class="badge b0" id="dState">—</span>
+      </div>
+      <div class="nums" id="dNums"></div>
+      <div class="splitbar" id="dBar"></div>
+      <div id="dAllocs"></div>
+      <div class="verdict" id="dVerdict">Not reviewed yet.</div>
+      <div class="acts">
+        <button class="violet" id="dReviewBtn">Review fairness</button>
+        <button class="solid" id="dSettleBtn">Pay the split</button>
+        <button class="sky" id="dRefundBtn">Refund client</button>
+      </div>
+      <div class="msg" id="dMsg"></div>
+    </div>
+  </div>
+
+  <div class="sec"><h3>Open a job <span>· client escrows the budget</span></h3></div>
+  <div class="card">
+    <h4>Create a job and fund the budget <span>· payable</span></h4>
+    <div class="row">
+      <div><label>COORDINATOR ADDRESS</label><input id="fCoord" placeholder="0x…" /></div>
+      <div><label>BUDGET (GEN)</label><input id="fBudget" type="number" step="0.01" placeholder="0.6" /></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>TITLE</label><input id="fTitle" placeholder="Deliver three on-chain products with documentation" /></div>
+      <div><label>COMPLETION CRITERIA</label><input id="fCrit" placeholder="Three contracts deployed, each documented" /></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div></div>
+      <div style="display:flex;align-items:flex-end"><button class="solid" id="createBtn">create_job</button></div>
+    </div>
+    <div class="msg" id="createMsg"></div>
+  </div>
+
+  <div class="sec"><h3>Propose a share <span>· coordinator only</span></h3></div>
+  <div class="card">
+    <h4>Add one agent's share and its evidence</h4>
+    <div class="row four">
+      <div><label>JOB ID</label><input id="aJob" placeholder="1" /></div>
+      <div><label>SHARE (%)</label><input id="aShare" type="number" step="1" placeholder="50" /></div>
+      <div><label>AGENT ADDRESS</label><input id="aAgent" placeholder="0x…" /></div>
+      <div style="display:flex;align-items:flex-end"><button class="solid" id="allocBtn">add</button></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div style="grid-column:1/-1"><label>EVIDENCE URL (what this agent delivered)</label><input id="aUrl" placeholder="https://…" /></div>
+    </div>
+    <div class="msg" id="allocMsg"></div>
+  </div>
+
+  <div class="sec"><h3>How it works</h3></div>
+  <div class="card">
+    <ol class="steps">
+      <li><b>create_job</b> (payable) — the client escrows the whole budget and names a coordinator.</li>
+      <li><b>add_allocation</b> — the coordinator adds each agent's share in basis points plus the URL that evidences what that agent delivered. Shares must sum to exactly 100%.</li>
+      <li><b>review_split</b> — the jury fetches <i>every</i> evidence URL on-chain (gl.nondet.web.get) and rules whether each share is proportionate to what that agent actually delivered (gl.nondet.exec_prompt under consensus). One shot per job.</li>
+      <li><b>settle_split</b> — a fair split pays every agent its share as a real transfer; dust from basis-point rounding goes to the coordinator.</li>
+      <li><b>refund_job</b> — an unfair split never pays out: the client reclaims the whole budget. No budget can be stranded.</li>
+    </ol>
+  </div>
+
+  <footer id="footLinks"></footer>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/genlayer-js@0.7.0";
+import { testnetBradbury } from "https://esm.sh/genlayer-js@0.7.0/chains";
+
+const ADDR = "0xd20EdA91C828ceb26fB9B2e7785113e21A15c931";
+const REPO = "https://github.com/dikejas/agentsplit";
+const EXPLORER = "https://explorer-bradbury.genlayer.com/address/" + ADDR;
+// ------------------------------------------------------------------------
+
+const JSTATE = ["OPEN", "FAIR", "UNFAIR", "PAID", "REFUNDED"];
+const COLORS = ["#f43f5e", "#38bdf8", "#a78bfa", "#fbbf24", "#34d399", "#fb7185"];
+const $ = (id) => document.getElementById(id);
+const readClient = createClient({ chain: testnetBradbury });
+let writeClient = null, myAddr = null, selected = null, jobs = [];
+
+const eth = (w) => (Number(w) / 1e18).toFixed(6);
+const short = (a) => (a && a.length > 16) ? a.slice(0, 8) + "…" + a.slice(-6) : a;
+const gen = (gw) => BigInt(Math.round(parseFloat(gw) * 1e6)) * 1000000000000n;
+function msg(el, t, k = "info") { el.className = "msg show " + k; el.textContent = t; }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function renderList() {
+  const el = $("list");
+  if (!jobs.length) { el.innerHTML = `<div class="empty">No jobs yet — escrow a budget and open the first one.</div>`; return; }
+  el.innerHTML = jobs.map((j) => `
+    <div class="job ${selected === Number(j.id) ? "sel" : ""}" data-id="${j.id}">
+      <div class="top">
+        <span class="id">JOB #${j.id}</span>
+        <span class="badge b${Number(j.state)}">${JSTATE[Number(j.state)] ?? j.state}</span>
+      </div>
+      <h4>${esc(j.title)}</h4>
+      <div class="crit">${esc(j.criteria)}</div>
+      <div class="nums">
+        <div>BUDGET<b class="t">${eth(j.budget)} GEN</b></div>
+        <div>AGENTS<b>${String(j.alloc_count)}</b></div>
+        <div>SCORE<b>${String(j.score)}/100</b></div>
+        <div>COORDINATOR<b>${short(j.coordinator)}</b></div>
+      </div>
+    </div>`).join("");
+  el.querySelectorAll(".job").forEach((c) => c.addEventListener("click", () => openJob(Number(c.dataset.id))));
+}
+
+async function renderDetail(j) {
+  selected = Number(j.id);
+  $("detail").classList.add("show");
+  $("dTitle").textContent = `#${j.id} · ${j.title}`;
+  const st = Number(j.state);
+  $("dState").className = "badge b" + st;
+  $("dState").textContent = JSTATE[st] ?? st;
+  $("dNums").innerHTML =
+    `<div>CLIENT<b>${short(j.client)}</b></div>` +
+    `<div>COORDINATOR<b>${short(j.coordinator)}</b></div>` +
+    `<div>BUDGET<b class="t">${eth(j.budget)} GEN</b></div>` +
+    `<div>SCORE<b>${String(j.score)}/100</b></div>`;
+
+  const n = Number(j.alloc_count);
+  const allocs = [];
+  for (let i = 0; i < n; i++) {
+    allocs.push(await readClient.readContract({ address: ADDR, functionName: "get_allocation", args: [BigInt(j.id), BigInt(i)] }));
+  }
+  const total = allocs.reduce((s, a) => s + Number(a.share_bp), 0) || 1;
+  $("dBar").innerHTML = allocs.map((a, i) =>
+    `<span style="width:${Number(a.share_bp) / total * 100}%;background:${COLORS[i % COLORS.length]}">${(Number(a.share_bp) / 100).toFixed(0)}%</span>`
+  ).join("");
+
+  $("dAllocs").innerHTML = allocs.map((a, i) => `
+    <div class="alloc">
+      <div class="who">
+        AGENT ${i + 1} · ${short(a.agent)}${a.paid ? " · PAID" : ""}
+        <small>${esc(a.evidence_url)}</small>
+      </div>
+      <div class="sh">${(Number(a.share_bp) / 100).toFixed(2)}% · ${eth(Number(j.budget) * Number(a.share_bp) / 10000)} GEN</div>
+    </div>`).join("");
+
+  $("dVerdict").innerHTML = j.verdict_reason
+    ? `Jury: ${esc(j.verdict_reason)}${j.confidence ? ` (confidence: ${esc(j.confidence)})` : ""}`
+    : `Not reviewed yet. Shares currently sum to ${(total / 100).toFixed(2)}% (must be exactly 100%).`;
+
+  $("dReviewBtn").disabled = st !== 0;
+  $("dSettleBtn").disabled = st !== 1;
+  $("dRefundBtn").disabled = st === 1 || j.settled;
+  renderList();
+}
+
+async function loadAll() {
+  try {
+    const count = Number(await readClient.readContract({ address: ADDR, functionName: "get_job_count", args: [] }));
+    jobs = [];
+    for (let i = 1; i <= count; i++) {
+      jobs.push(await readClient.readContract({ address: ADDR, functionName: "get_job", args: [BigInt(i)] }));
+    }
+    renderList();
+    const locked = jobs.filter((j) => !j.settled).reduce((s, j) => s + Number(j.budget), 0);
+    $("sCount").textContent = count;
+    $("sLocked").innerHTML = `${eth(locked)}<small>GEN</small>`;
+    $("sPaid").textContent = jobs.filter((j) => Number(j.state) === 3).length;
+    $("sRefunded").textContent = jobs.filter((j) => Number(j.state) === 4).length;
+    $("listNote").textContent = `· ${count} on chain`;
+    if (selected) { const j = jobs.find((x) => Number(x.id) === selected); if (j) await renderDetail(j); }
+  } catch (e) {
+    $("list").innerHTML = `<div class="empty">Could not read jobs: ${esc((e.message || e).toString().slice(0, 130))}</div>`;
+  }
+}
+
+async function openJob(id) {
+  try {
+    const j = await readClient.readContract({ address: ADDR, functionName: "get_job", args: [BigInt(id)] });
+    await renderDetail(j);
+    $("detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (e) { msg($("dMsg"), "Read failed: " + (e.message || e).toString().slice(0, 160), "err"); }
+}
+
+$("connectBtn").addEventListener("click", async () => {
+  if (!window.ethereum) return msg($("createMsg"), "No wallet detected — install MetaMask.", "err");
+  try {
+    const a = await window.ethereum.request({ method: "eth_requestAccounts" });
+    myAddr = a[0];
+    try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x107d" }] }); }
+    catch {
+      await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+        chainId: "0x107d", chainName: "GenLayer Bradbury Testnet",
+        nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+        rpcUrls: ["https://rpc-bradbury.genlayer.com"],
+        blockExplorerUrls: ["https://explorer-bradbury.genlayer.com"],
+      }]});
+    }
+    writeClient = createClient({ chain: testnetBradbury, account: window.ethereum });
+    $("netLabel").textContent = short(myAddr);
+    $("netDot").classList.add("on");
+    $("connectBtn").textContent = "Connected";
+    msg($("createMsg"), "Wallet connected.", "ok");
+  } catch (e) { msg($("createMsg"), "Connect failed: " + e.message, "err"); }
+});
+
+async function write(fn, args, el, label, value = 0n) {
+  if (!writeClient) return msg(el, "Connect your wallet first.", "err");
+  try {
+    msg(el, `${label} → submitting…`, "info");
+    const hash = await writeClient.writeContract({ address: ADDR, functionName: fn, args, value });
+    msg(el, `${label} sent: ${hash}`, "ok");
+    setTimeout(loadAll, 15000);
+  } catch (e) { msg(el, `${label} failed: ` + (e.message || e).toString().slice(0, 240), "err"); }
+}
+
+$("createBtn").addEventListener("click", () => {
+  const c = $("fCoord").value.trim(), b = $("fBudget").value,
+        t = $("fTitle").value.trim(), cr = $("fCrit").value.trim();
+  if (!c || !b || !t || !cr) return msg($("createMsg"), "Fill in coordinator, budget, title and criteria.", "err");
+  write("create_job", [c, t, cr], $("createMsg"), "create_job", gen(b));
+});
+
+$("allocBtn").addEventListener("click", () => {
+  const jid = $("aJob").value, share = $("aShare").value,
+        agent = $("aAgent").value.trim(), url = $("aUrl").value.trim();
+  if (!jid || !share || !agent || !url) return msg($("allocMsg"), "Fill in job id, share, agent address and evidence URL.", "err");
+  const bp = BigInt(Math.round(parseFloat(share) * 100));   // % -> basis points
+  write("add_allocation", [BigInt(jid), agent, bp, url], $("allocMsg"), `add_allocation (${share}%)`);
+});
+
+$("dReviewBtn").addEventListener("click", () => { if (selected) write("review_split", [BigInt(selected)], $("dMsg"), "review_split (jury fetches every evidence URL)"); });
+$("dSettleBtn").addEventListener("click", () => { if (selected) write("settle_split", [BigInt(selected)], $("dMsg"), "settle_split (pays every agent its share)"); });
+$("dRefundBtn").addEventListener("click", () => { if (selected) write("refund_job", [BigInt(selected)], $("dMsg"), "refund_job (returns the budget to the client)"); });
+
+$("reloadBtn").addEventListener("click", loadAll);
+$("jumpBtn").addEventListener("click", () => { const v = $("jumpId").value; if (v) openJob(Number(v)); });
+
+$("footLinks").innerHTML = `contract <a href="${EXPLORER}" target="_blank" rel="noopener">${ADDR}</a> · <a href="${REPO}" target="_blank" rel="noopener">source</a><br />`;
+loadAll();
+</script>
+</body>
+</html>
