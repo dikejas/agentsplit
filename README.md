@@ -134,6 +134,26 @@ paid out to every agent, and a deliberately unfair split is rejected by the jury
 budget is refunded instead of paid. See `_提交材料.md` and the `as_audit.txt` / `as_evidence.txt`
 fields for the transaction hashes produced by that run.
 
+### Browser wallet path
+
+The web UI is not a mock: a browser wallet signs the transaction and the contract state changes.
+
+PENDING_TX_PLACEHOLDER
+
+The signing path in `index.html`:
+
+- `createClient` is **not** given `window.ethereum` as the account. The connected address is supplied
+  per call as a JSON-RPC account object `{address, type:"json-rpc"}`, and the signing provider is
+  wrapped so the SDK cannot fall back to `window.ethereum`. With more than one extension installed
+  that fallback answers `4100 unauthorised` and the wallet never signs at all.
+- `pickProvider()` prefers OKX (`window.okxwallet`) and then MetaMask / Rabby / any injected provider,
+  so the wallet the user actually connected with is the one that signs.
+- `wallet_switchEthereumChain` runs before every write. `4902` triggers `wallet_addEthereumChain`, and
+  `4001` / `-32002` / `4100` each map to an explicit message instead of a silent failure.
+  `eth_chainId` is compared against `4221` before anything is signed.
+- A transaction hash is never treated as success: the receipt is awaited to `ACCEPTED` / `FINALIZED`
+  and the execution result is checked first.
+
 ---
 
 ## License
