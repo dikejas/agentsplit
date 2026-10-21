@@ -138,7 +138,12 @@ fields for the transaction hashes produced by that run.
 
 The web UI is not a mock: a browser wallet signs the transaction and the contract state changes.
 
-PENDING_TX_PLACEHOLDER
+Transaction 0x992bf4457816d784ea68568d24aeaf9891394f045293434a1e96b83570839680
+
+- from `0x57e4c6B7f3377D243d7249d144dbb798CCCc8deC` — the connected browser wallet, not a local script key
+- method `create_job`, `value` 0.2 GEN, execution result `FINISHED_WITH_RETURN`
+- `job_count` moved 3 -> 4 and the contract balance 0.9 -> 1.1 GEN, so the call really landed
+- job #4 records the escrowed 0.2 GEN with the coordinator passed in the same call
 
 The signing path in `index.html`:
 
